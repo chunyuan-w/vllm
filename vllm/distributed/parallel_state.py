@@ -1151,14 +1151,14 @@ def patch_tensor_parallel_group(tp_group: GroupCoordinator):
         _TP = old_tp_group
 
 
-def get_tensor_model_parallel_world_size():
+def get_tensor_model_parallel_world_size(device: Optional[torch.device]=None):
     """Return world size for the tensor model parallel group."""
-    return get_tp_group().world_size
+    return get_tp_group().world_size if device != torch.device("cpu") else 1
 
 
-def get_tensor_model_parallel_rank():
+def get_tensor_model_parallel_rank(device: Optional[torch.device]=None):
     """Return my rank for the tensor model parallel group."""
-    return get_tp_group().rank_in_group
+    return get_tp_group().rank_in_group if device != torch.device("cpu") else 0
 
 
 def destroy_model_parallel():
