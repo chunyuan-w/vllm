@@ -922,8 +922,8 @@ def init_model_parallel_group(
 _TP: Optional[GroupCoordinator] = None
 
 
-def get_tp_group(target_device: Optional[torch.device] = None) -> GroupCoordinator:
-    if target_device == torch.device("cpu"):
+def get_tp_group(device: Optional[str] = None) -> GroupCoordinator:
+    if device == "cpu":
         return None
     
     assert _TP is not None, ("tensor model parallel group is not initialized")
@@ -1154,14 +1154,14 @@ def patch_tensor_parallel_group(tp_group: GroupCoordinator):
         _TP = old_tp_group
 
 
-def get_tensor_model_parallel_world_size(device: Optional[torch.device]=None):
+def get_tensor_model_parallel_world_size(device: Optional[str]=None):
     """Return world size for the tensor model parallel group."""
-    return get_tp_group().world_size if device != torch.device("cpu") else 1
+    return get_tp_group().world_size if device != "cpu" else 1
 
 
-def get_tensor_model_parallel_rank(device: Optional[torch.device]=None):
+def get_tensor_model_parallel_rank(device: Optional[str]=None):
     """Return my rank for the tensor model parallel group."""
-    return get_tp_group().rank_in_group if device != torch.device("cpu") else 0
+    return get_tp_group().rank_in_group if device != "cpu" else 0
 
 
 def destroy_model_parallel():
