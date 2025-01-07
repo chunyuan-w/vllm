@@ -922,7 +922,10 @@ def init_model_parallel_group(
 _TP: Optional[GroupCoordinator] = None
 
 
-def get_tp_group() -> GroupCoordinator:
+def get_tp_group(target_device: Optional[torch.device] = None) -> GroupCoordinator:
+    if target_device == torch.device("cpu"):
+        return None
+    
     assert _TP is not None, ("tensor model parallel group is not initialized")
     return _TP
 
