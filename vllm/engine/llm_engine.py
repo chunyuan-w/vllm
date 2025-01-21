@@ -1451,8 +1451,26 @@ class LLMEngine:
                 execute_model_req.async_callback = self.async_callbacks[
                     virtual_engine]
 
-            outputs = self.model_executor.execute_model(
-                execute_model_req=execute_model_req)
+            # add profile
+            profile_enabled = True
+            # breakpoint()
+            # profile_enabled = False
+            
+            record_shapes = True
+            # record_shapes = False
+            t0 = time.time()
+            with torch.autograd.profiler.profile(enabled=profile_enabled, record_shapes=record_shapes) as prof:
+                # inference
+                outputs = self.model_executor.execute_model(
+                    execute_model_req=execute_model_req)
+            print("my ouputs time: ", time.time() - t0)
+
+            if profile_enabled:
+                print(prof.key_averages(group_by_input_shape=record_shapes).table(sort_by="self_cpu_time_total"))
+                # prof.export_chrome_trace("/home/chunyuan/vllm-dev/tp2_trace.json")
+
+            # outputs = self.model_executor.execute_model(
+            #     execute_model_req=execute_model_req)
 
             # We need to do this here so that last step's sampled_token_ids can
             # be passed to the next iteration for PP.

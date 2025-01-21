@@ -923,6 +923,8 @@ class LLM:
     def _run_engine(
             self, *, use_tqdm: bool
     ) -> List[Union[RequestOutput, EmbeddingRequestOutput]]:
+        import time
+        t0 = time.time()
         # Initialize tqdm.
         if use_tqdm:
             num_requests = self.llm_engine.get_num_unfinished_requests()
@@ -939,7 +941,9 @@ class LLM:
         total_in_toks = 0
         total_out_toks = 0
         while self.llm_engine.has_unfinished_requests():
+            t1 = time.time()
             step_outputs = self.llm_engine.step()
+            print("my time after step: ", time.time() - t1)
             for output in step_outputs:
                 if output.finished:
                     outputs.append(output)

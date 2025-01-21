@@ -149,9 +149,26 @@ def run_vllm(
 
     use_beam_search = False
 
+    print("my run_vllm")
+    print("")
+    
     if not use_beam_search:
         start = time.perf_counter()
-        llm.generate(prompts, sampling_params, use_tqdm=True)
+        
+        # add profile
+        profile_enabled = True
+        # profile_enabled = False
+        
+        # record_shapes = True
+        record_shapes = False
+        with torch.autograd.profiler.profile(enabled=profile_enabled, record_shapes=record_shapes) as prof:
+            # inference
+            llm.generate(prompts, sampling_params, use_tqdm=True)
+        if profile_enabled:
+            print(prof.key_averages(group_by_input_shape=record_shapes).table(sort_by="self_cpu_time_total"))        
+        
+        
+        # llm.generate(prompts, sampling_params, use_tqdm=True)
         end = time.perf_counter()
     else:
         prompts = [request.prompt for request in requests]
@@ -279,6 +296,7 @@ def run_mii(
     prompts = [request.prompt for request in requests]
 
     start = time.perf_counter()
+    print("my run_mii")
     llm.generate(prompts, max_new_tokens=output_len)
     end = time.perf_counter()
     client = client(model)
@@ -328,6 +346,7 @@ def main(args: argparse.Namespace):
         else:
             elapsed_time = run_vllm(requests, args.n,
                                     EngineArgs.from_cli_args(args))
+            print("my time: ", elapsed_time)
     elif args.backend == "hf":
         assert args.tensor_parallel_size == 1
         elapsed_time = run_hf(requests, args.model, tokenizer, args.n,
