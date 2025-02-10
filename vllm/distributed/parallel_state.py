@@ -167,6 +167,7 @@ class GroupCoordinator:
     pynccl_comm: Optional[Any]  # PyNccl communicator
     ca_comm: Optional[Any]  # Custom allreduce communicator
     mq_broadcaster: Optional[Any]  # shared memory broadcaster
+    shm_comm_op: Optional[Any]
 
     def __init__(
         self,
@@ -180,6 +181,7 @@ class GroupCoordinator:
         use_xpu_communicator: bool,
         use_message_queue_broadcaster: bool = False,
         group_name: Optional[str] = None,
+        shm_comm_op=None,
     ):
         group_name = group_name or "anonymous"
         self.unique_name = _get_unique_name(group_name)
@@ -189,6 +191,7 @@ class GroupCoordinator:
         self.local_rank = local_rank
         self.device_group = None
         self.cpu_group = None
+        self.shm_comm_op = shm_comm_op
 
         for ranks in group_ranks:
             device_group = torch.distributed.new_group(
@@ -255,6 +258,8 @@ class GroupCoordinator:
         self.xpu_communicator: Optional[XpuCommunicator]
         if use_xpu_communicator and self.world_size > 1:
             self.xpu_communicator = XpuCommunicator(group=self.device_group)
+        # TODO: add a cpu_communicator here and do the dist init is here?
+        
 
         from vllm.distributed.device_communicators.shm_broadcast import (
             MessageQueue)
@@ -364,6 +369,9 @@ class GroupCoordinator:
             return input_
 
         if input_.is_cpu:
+            # self._all_reduce_in_place(input_)
+            # return input_            
+            
             import intel_extension_for_pytorch as ipex
             ipex.distributed.all_reduce(input_, group=self.device_group)
             return input_
@@ -902,6 +910,7 @@ def init_model_parallel_group(
     use_custom_allreduce: Optional[bool] = None,
     use_message_queue_broadcaster: bool = False,
     group_name: Optional[str] = None,
+    shm_comm_op = None
 ) -> GroupCoordinator:
     if use_custom_allreduce is None:
         use_custom_allreduce = _ENABLE_CUSTOM_ALL_REDUCE
@@ -916,6 +925,7 @@ def init_model_parallel_group(
         use_xpu_communicator=True,
         use_message_queue_broadcaster=use_message_queue_broadcaster,
         group_name=group_name,
+        shm_comm_op=shm_comm_op,
     )
 
 
@@ -994,6 +1004,7 @@ def init_distributed_environment(
             init_method=distributed_init_method,
             world_size=world_size,
             rank=rank)
+        # TODO: dist init is here
     # set the local rank
     # local_rank is not available in torch ProcessGroup,
     # see https://github.com/pytorch/pytorch/issues/122816
@@ -1017,6 +1028,7 @@ def initialize_model_parallel(
     tensor_model_parallel_size: int = 1,
     pipeline_model_parallel_size: int = 1,
     backend: Optional[str] = None,
+    shm_comm_op=None,
 ) -> None:
     """
     Initialize model parallel groups.
@@ -1041,8 +1053,11 @@ def initialize_model_parallel(
     ranks 8 to 15 belong to the second box.
     """
     # Get world size and rank. Ensure some consistencies.
+    print("my tensor_model_parallel_size:", tensor_model_parallel_size)
     assert torch.distributed.is_initialized()
     world_size: int = torch.distributed.get_world_size()
+    print("my world_size:", world_size)
+    
     backend = backend or torch.distributed.get_backend(
         get_world_group().device_group)
 
@@ -1070,7 +1085,8 @@ def initialize_model_parallel(
                                     get_world_group().local_rank,
                                     backend,
                                     use_message_queue_broadcaster=True,
-                                    group_name="tp")
+                                    group_name="tp",
+                                    shm_comm_op=shm_comm_op)
 
     # Build the pipeline model-parallel groups.
     num_pipeline_model_parallel_groups: int = (world_size //
